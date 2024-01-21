@@ -22,7 +22,7 @@ print(platform.system()=="Windows")
 
 #tree type 
 print(list(os.walk('path'))) #taple value  recursive files and folders
-for r,d,f in os.walk('path',topdown=False):
+for r,d,f in os.walk('path',topdown=False):#r = root, d=directory, f = file
     print(r,f)
 
 
