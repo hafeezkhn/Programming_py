@@ -1,5 +1,8 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QSlider, QLabel, QHBoxLayout
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QPainter, QColor
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 from OpenGL import GL, GLU
 import sys
@@ -41,19 +44,48 @@ class FlightDisplayOpenGLWidget(QOpenGLWidget):
         GL.glVertex3f(0.5, -1.0, 0.0)
         GL.glEnd()
 
+        # Draw pitch and roll values
+        self.drawPitchRollValues()
+
     def drawCircularScale(self):
-        GL.glColor3f(0.5, 0.5, 0.5)  # Gray color for the circular scale
+        num_circles = 5  # Number of concentric circles
+        circle_colors = [(0.5, 0.5, 0.5), (0.4, 0.4, 0.4), (0.3, 0.3, 0.3), (0.2, 0.2, 0.2), (0.1, 0.1, 0.1)]
 
         num_points = 360
-        radius = 1.5
+        max_radius = 1.5
 
-        GL.glBegin(GL.GL_LINE_LOOP)
-        for i in range(num_points):
-            angle = math.radians(i)
-            x = radius * math.cos(angle)
-            y = radius * math.sin(angle)
-            GL.glVertex3f(x, y, 0.0)
-        GL.glEnd()
+        for i in range(num_circles):
+            current_radius = max_radius * (i + 1) / num_circles
+            current_color = circle_colors[i]
+
+            GL.glColor3f(*current_color)
+
+            # Draw each circle
+            GL.glBegin(GL.GL_LINE_LOOP)
+            for j in range(num_points):
+                angle = math.radians(j)
+                x = current_radius * math.cos(angle)
+                z = current_radius * math.sin(angle)
+                GL.glVertex3f(x, 0.0, z)
+            GL.glEnd()
+
+    def drawPitchRollValues(self):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        font = QFont("Arial", 12)
+        painter.setFont(font)
+        painter.setPen(QColor(255, 255, 255))  # White color for text
+
+        # Draw pitch value
+        pitch_text = f"Pitch: {self.pitch_angle:.2f} degrees"
+        painter.drawText(self.width() - 200, 20, pitch_text)
+
+        # Draw roll value
+        roll_text = f"Roll: {self.roll_angle:.2f} degrees"
+        painter.drawText(self.width() - 200, 40, roll_text)
+
+        painter.end()
 
     def setPitchAngle(self, angle):
         self.pitch_angle = angle
@@ -64,6 +96,9 @@ class FlightDisplayOpenGLWidget(QOpenGLWidget):
         self.update()
 
 class FlightDisplayApp(QWidget):
+    # Define signals for pitch and roll updates
+    pitch_updated = Signal(int)
+    roll_updated = Signal(int)
     def __init__(self):
         super(FlightDisplayApp, self).__init__()
 
@@ -95,12 +130,35 @@ class FlightDisplayApp(QWidget):
         main_layout.addWidget(self.roll_slider)
 
         self.setLayout(main_layout)
+        
+    def on_pitch_slider_value_changed(self, value):
+        self.flight_display_widget.setPitchAngle(value)
+        # Emit the signal when the pitch slider is changed
+        self.pitch_updated.emit(value)
+
+    def on_roll_slider_value_changed(self, value):
+        self.flight_display_widget.setRollAngle(value)
+        # Emit the signal when the roll slider is changed
+        self.roll_updated.emit(value)
+
+    # Method to update sliders externally
+    def updateSliders(self, pitch_value, roll_value):
+        self.pitch_slider.setValue(pitch_value)
+        self.roll_slider.setValue(roll_value)
+        self.flight_display_widget.setPitchAngle(pitch_value)
+        self.flight_display_widget.setRollAngle(roll_value)
 
     def on_pitch_slider_value_changed(self, value):
         self.flight_display_widget.setPitchAngle(value)
 
     def on_roll_slider_value_changed(self, value):
         self.flight_display_widget.setRollAngle(value)
+
+    def setPitchRollFromSimulink(self, pitch_value, roll_value):
+        self.pitch_slider.setValue(pitch_value)
+        self.roll_slider.setValue(roll_value)
+        self.flight_display_widget.setPitchAngle(pitch_value)
+        self.flight_display_widget.setRollAngle(roll_value)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
